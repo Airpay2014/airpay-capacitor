@@ -8,4 +8,5 @@ declare module '@capacitor/core' {
 export interface MyCustomPluginPlugin {
   echo(options: { value: string }): Promise<{ value: string }>;
   open(options: { value: string }): Promise<{ value: string }>;
+  addListener(eventName: string, listenerFunc: (data: any) => void): void;
 }

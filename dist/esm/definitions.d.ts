@@ -14,4 +14,5 @@ export interface MyCustomPluginPlugin {
     }): Promise<{
         value: string;
     }>;
+    addListener(eventName: string, listenerFunc: (data: any) => void): void;
 }

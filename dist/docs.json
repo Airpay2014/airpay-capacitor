@@ -36,6 +36,27 @@
         "docs": "",
         "complexTypes": [],
         "slug": "open"
+      },
+      {
+        "name": "addListener",
+        "signature": "(eventName: string, listenerFunc: (data: any) => void) => void",
+        "parameters": [
+          {
+            "name": "eventName",
+            "docs": "",
+            "type": "string"
+          },
+          {
+            "name": "listenerFunc",
+            "docs": "",
+            "type": "(data: any) => void"
+          }
+        ],
+        "returns": "void",
+        "tags": [],
+        "docs": "",
+        "complexTypes": [],
+        "slug": "addlistenerstring-"
       }
     ],
     "properties": []
