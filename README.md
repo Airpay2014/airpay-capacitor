@@ -55,7 +55,7 @@ npx cap add ios
 npx cap sync ios
 ```
 
-### Install the Airpay Plugin
+### Install the Airpay Plugin - (Ionic Capacitor v8)
 
 ```sh
 npm install https://github.com/Airpay2014/airpay-capacitor.git
@@ -500,7 +500,7 @@ The following iOS files are crucial for integrating Airpay with Capacitor:
 ### Adding Framework
 Need to change the general setting -(Go to project settings -> general -> Frameworks, libraries, and Embedded Content -> Select the library and set Embed & sign)
 
-Refer the sample code on sanctum portal for the integration and make sure the following changes need to present on your project 
+Please refer to the Ionic Capacitor sample kit code available on the Sanctum portal for integration, which includes the Airpay Framework. Ensure the following changes are applied to your project.
 
 ### Info.plist - Adding below code 
 
@@ -528,7 +528,7 @@ Need to configured the Merchant Configuration details inside the AirpayDemoViewM
     @Published var kAirPayUserName: String = ""  //(Enter the Username value)
     @Published var kAirPayPassword: String = ""  //(Enter the Password value)
     @Published var successURL: String = ""       //(Enter the Success url value)
-	@Published var merchantID:String = ""        //(Enter the Merchant Id value)
+	  @Published var merchantID:String = ""        //(Enter the Merchant Id value)
 ```
 	
 Refer the PrivateKey function -
