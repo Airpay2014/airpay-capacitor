@@ -440,7 +440,8 @@ implementation 'androidx.localbroadcastmanager:localbroadcastmanager:1.0.0'
 
 ### build.gradle (project-level)
 
-Add the following repository configurations:
+Add the following repository configurations: 
+Note:- For the username and password , please refer the ionic capacitor kit on sanctum link.  
 
 ```gradle
 maven { url 'https://maven.google.com' }
