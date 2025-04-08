@@ -7,6 +7,9 @@ This is the official Ionic Capacitor plugin for integrating the Airpay payment g
 * **Android** (version compatibility details below)  
   - Up to Gradle version 8.7
 
+* **iOS** 
+  - Xcode 16.2_swiftUI  
+
 ## Requirements
 
 * **Node.js Version:** 22.11.0
@@ -44,12 +47,21 @@ npx cap add android
 npx cap sync android
 ```
 
+### Enable Capacitor and Add iOS Platform
+
+```sh
+npm install @capacitor/ios
+npx cap add ios
+npx cap sync ios
+```
+
 ### Install the Airpay Plugin
 
 ```sh
 npm install https://github.com/Airpay2014/airpay-capacitor.git
 ionic build
 ionic cap sync android
+ionic cap sync ios
 ```
 
 ## Android Integration
@@ -479,6 +491,285 @@ await MyCustomPlugin.open({ value: jsonData })
         alert("Error is " + error);
     });
 ```
+
+
+## iOS Integration
+
+The following iOS files are crucial for integrating Airpay with Capacitor:
+
+### Adding Framework
+Need to change the general setting -(Go to project settings -> general -> Frameworks, libraries, and Embedded Content -> Select the library and set Embed & sign)
+
+Refer the sample code on sanctum portal for the integration and make sure the following changes need to present on your project 
+
+### Info.plist - Adding below code 
+
+```
+<key>LSApplicationQueriesSchemes</key>
+    <array>
+      <string>phonepe</string>
+      <string>gpay</string>
+      <string>bhim</string>
+      <string>paytmmp</string>
+      <string>amazonToAlipay</string>
+      <string>whatsapp</string>
+      <string>credpay</string>
+      <string>mobikwik</string>
+    </array>
+```
+	
+### AirpayDemoViewModel.swift file changes -
+
+
+Need to configured the Merchant Configuration details inside the AirpayDemoViewModel.swift file -
+
+```
+    @Published var kAirPaySecretKey: String = "" //(Enter the Secret Key value)
+    @Published var kAirPayUserName: String = ""  //(Enter the Username value)
+    @Published var kAirPayPassword: String = ""  //(Enter the Password value)
+    @Published var successURL: String = ""       //(Enter the Success url value)
+	@Published var merchantID:String = ""        //(Enter the Merchant Id value)
+```
+	
+Refer the PrivateKey function -
+
+```
+ func privateKey()->String {
+      let sTemp = "\(kAirPaySecretKey)\("@")\(kAirPayUserName)\(":|:")\(kAirPayPassword)"
+      let hashCode1 = "\(sTemp)"
+      let sPrivateKey = hashCode1.sha256Hash()
+      print("sPrivateKey: \(sPrivateKey)")
+      return sPrivateKey
+  }
+```
+  
+Refer the Checksum Calculation function inside the AirpayDemoViewModel.swift
+ 
+```
+
+func getCheckSum(privateKey:String, currentDate:String,email:String,firstName:String,lastName:String,address:String,city:String,state:String,country:String,orderID:String,amount:String) -> String {
+    
+      let stringAll = "\(email)\(firstName)\(lastName)\(address )\(city)\(state)\(country)\(amount)\(orderID)\(currentDate)"
+      
+      let sTemp2 = "\(kAirPayUserName)\("~:~")\(kAirPayPassword)"
+      let hashCode2 = "\(sTemp2)"
+      let sKey = hashCode2.sha256Hash()
+      
+      let sAllData = "\(sKey)@\(stringAll)"
+      let checksumStr = "\(sAllData.sha256Hash())"
+      
+     
+      return checksumStr
+  }
+  
+```	
+(Validation of fields , checksum , private key, date calculation, encodeDomainToBase64 , sha256Hash all are functions logics mentioned inside the AirpayDemoViewModel.swift class)  
+
+### Response handling will be managed by the finishPayment() method - 
+
+Note :- AirPayDelegate class was extended to the AirpayDemoViewModel.swift class hence we are able to get the finishPayment method on AirpayDemoViewModel.swift class
+
+```	
+    // Delegate method to call when payment finishes
+    func finishPayment(success: Bool, response: [String: Any]?, error: Error?) {
+        // Extract values from the response
+        let status = response?["TRANSACTIONSTATUS"] as? String ?? ""
+        let chmod = response?["CHMOD"] as? String ?? ""
+        var customerVPA = ""
+        
+        if chmod == "upi" {
+            customerVPA = ":" + (response?["CUSTOMERVPA"] as? String ?? "")
+        }
+        
+        let apSecureHash = response?["AP_SECUREHASH"] as? String ?? ""
+        let transID = response?["MERCHANTTRANSACTIONID"] as? String ?? ""
+        let apTransactionID = response?["TRANSACTIONID"] as? String ?? ""
+        let transactionAmount = response?["TRANSACTIONAMT"] as? String ?? ""
+        let transactionStatus = response?["TRANSACTIONSTATUS"] as? String ?? ""
+        let statusMsg = response?["STATUSMSG"] as? String ?? ""
+        
+        let strParam = "\(transID)" + ":" + "\(apTransactionID)" + ":" + "\(transactionAmount)" + ":" + "\(transactionStatus)" + ":" + "\(statusMsg)" + ":" + "\(merchantID)" + ":" + "\(kAirPayUserName)\(customerVPA)"
+        
+        print("Parameter String: \(strParam)")
+        
+        let crc32Str = strParam.data(using: .utf8)
+        let calculatedHash = crc32Str?.withUnsafeBytes {
+            crc32(0, $0.bindMemory(to: Bytef.self).baseAddress, numericCast(crc32Str?.count ?? 0))
+        }
+        
+        let sCRC = "\(calculatedHash ?? 0)"
+        print("Calculated Hash: \(sCRC)")
+        print("AP Secure Hash: \(apSecureHash)")
+        
+        var upiStatus = ""
+        if sCRC == apSecureHash {
+            print("Secure hash matched")
+            upiStatus = "SECURE HASH MATCHED"
+        } else {
+            print("Secure hash mismatch")
+            upiStatus = "SECURE HASH MIS-MATCHED"
+        }
+        
+        // Update SwiftUI state variables
+        DispatchQueue.main.async {
+            self.isPresentingWebView = false
+                if success {
+                    self.alertTitle = status
+                    self.alertMessage = "\(String(describing: response)) \(upiStatus)"
+                } else {
+                    self.alertTitle = "status"
+                    self.alertMessage = "\(String(describing: response)) \(upiStatus)"
+                }
+            }
+        showTransactionAlert = true
+    }  
+
+```	
+
+Note:- Securehash logic was mentioned inside the finishPayment method. Calculated securehash will be matched with securehash getting from the transaction response, By matching the securehash value we can validate the transaction response getting from the server.
+
+If the securehash is mismatched then the reponse which received from server is inproper for the requested transaction id.
+
+
+### AppDelegate.swift file changes -
+
+In this class, handleAirPayNotification method contains the logic to send the request parameters to the framework and also handling the response to the ionic app side using notification centre.
+
+Code logic - 
+```	
+
+import UIKit
+import SwiftUI
+import AirpayKitPlugin
+import Capacitor
+import Airpay_Kit_Swiftui
+@UIApplicationMain
+class AppDelegate: UIResponder, UIApplicationDelegate, AirPayDelegate {
+  var hasAlreadyHandledPayment = false
+  func finishPayment(success: Bool, response: [String: Any]?, error: (any Error)?) {
+          // Prevent duplicate calls
+          guard !hasAlreadyHandledPayment else { return }
+          hasAlreadyHandledPayment = true
+
+          var resultDict: [String: Any] = ["success": success]
+
+          if let response = response {
+              resultDict["response"] = response
+          }
+
+          if let error = error {
+              resultDict["error"] = error.localizedDescription
+          }
+
+          DispatchQueue.main.async {
+              // Close AirPay web view
+              self.window?.rootViewController?.dismiss(animated: true) {
+                  // Send response back to Ionic via NotificationCenter
+                  NotificationCenter.default.post(
+                      name: Notification.Name("PaymentResponse"),
+                      object: nil,
+                      userInfo: resultDict
+                  )
+                  print("PaymentResponse notification posted")
+
+                  // Reset flag after a delay (e.g., 1 sec) to allow new payments
+                  DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
+                      self.hasAlreadyHandledPayment = false
+                  }
+              }
+          }
+      }
+
+  
+  var window: UIWindow?
+  var paymentModel = AirpayDemoViewModel.shared
+  func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+    // Override point for customization after application launch.
+    let bridge = CAPBridgeViewController()
+    bridge.bridge?.registerPluginType(AirpayPlugin.self)
+    NotificationCenter.default.addObserver(self, selector: #selector(handleAirPayNotification(_:)), name: Notification.Name("AirPayCall"), object: nil)
+    
+    return true
+  }
+  
+  
+  @objc func handleAirPayNotification(_ notification: Notification) {
+    DispatchQueue.main.async {
+      let today = Date()
+      let dateFormat = DateFormatter()
+      dateFormat.dateFormat = "yyyy-MM-dd"
+      let sCurrentDate = dateFormat.string(from: today)
+      
+      
+      
+      
+      guard let userInfo = notification.userInfo as? [String: Any] else {
+        print("No userInfo found in notification")
+        return
+      }
+      print(userInfo)
+      // Extract the parameters from userInfo
+      let email = userInfo["email"] as? String ?? ""
+      let phoneNumber = userInfo["phone"] as? String ?? ""
+      let orderID = userInfo["orderId"] as? String ?? ""
+      let amount = "\(userInfo["amount"] ?? 0)"
+      let firstName = userInfo["firstName"] as? String ?? ""
+      let lastName = userInfo["lastName"] as? String ?? ""
+      let address = userInfo["fullAddress"] as? String ?? ""
+      let city = userInfo["city"] as? String ?? ""
+      let state = userInfo["state"] as? String ?? ""
+      let country = userInfo["country"] as? String ?? ""
+      let pincode = userInfo["pincode"] as? String ?? ""
+      print(orderID)
+      print(amount)
+      let checksumStr = self.paymentModel.getCheckSum(privateKey: self.paymentModel.privateKey(), currentDate: sCurrentDate, email: email, firstName: firstName, lastName: lastName, address: address, city: city, state: state, country: country, orderID: orderID, amount: amount)
+      
+      DispatchQueue.main.async {
+        let airpayViewModel = AirPayWebViewModel(
+          envConfigString: "production",
+          email: email,
+          phoneNumber: phoneNumber,
+          orderID: orderID,
+          amount: amount,
+          secretAPIKey: self.paymentModel.kAirPaySecretKey,
+          successURL: self.paymentModel.successURL,
+          userName: self.paymentModel.kAirPayUserName,
+          password: self.paymentModel.kAirPayPassword,
+          privateKey: self.paymentModel.privateKey(),
+          checksumStr: checksumStr,
+          firstName: firstName,
+          lastName: lastName,
+          address: address,
+          city: city,
+          state: state,
+          country: country,
+          pincode: pincode,
+          mode: self.paymentModel.mode,
+          merchantID: self.paymentModel.merchantID,
+          customVariable: self.paymentModel.customVariable,
+          transactionSubType: self.paymentModel.transactionSubType,
+          currencyValue: self.paymentModel.currencyValue,
+          isoCurrency: self.paymentModel.isoCurrency,
+          wallet: self.paymentModel.wallet,
+          token: self.paymentModel.token,
+          delegate: self
+        )
+        // Present the AirPay WebView
+        let airpayWebView = AirPayWebView(viewModel: airpayViewModel)
+        let hostingController = UIHostingController(rootView: airpayWebView)
+        hostingController.modalPresentationStyle = .fullScreen
+        self.window?.rootViewController?.present(hostingController, animated: true, completion: nil)
+      }
+      
+    }
+  }
+  
+  
+}
+ 
+```	
+
+
 
 > **Note:** For merchant configuration details, please contact the Airpay Support Team.
 
